@@ -1,0 +1,49 @@
+{
+  "name": "dsh-model-prober",
+  "version": "0.2.0",
+  "description": "Probe third-party OpenAI-compatible endpoints from the dsh Models settings page: a 探测能力 button that discovers vision support, reasoning levels (fully explicit, no Default), and context, then fills the model list.",
+  "type": "module",
+  "main": "host/index.js",
+  "bin": {
+    "dsh-model-prober": "bin/cli.js"
+  },
+  "exports": {
+    ".": "./host/index.js",
+    "./client": "./client/index.js",
+    "./probe": "./lib/probe.js",
+    "./generate": "./lib/generate.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "host",
+    "client",
+    "lib",
+    "bin",
+    "cordis.patch.yml"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/st-open/dsh-model-prober.git"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": false,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings-models"
+      ]
+    }
+  },
+  "keywords": [
+    "dsh",
+    "cordis",
+    "model",
+    "prober",
+    "vision",
+    "reasoning"
+  ]
+}

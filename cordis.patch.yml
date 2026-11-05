@@ -1,0 +1,7 @@
+# dsh-model-prober — host half registers an LLM model-discovery under the
+# "model-prober" namespace; client half adds a 探测能力 button to each provider
+# card in Models settings. The row name must equal package.json "name" and the
+# client module id.
+- insert:
+    - id: model-prober
+      name: 'dsh-model-prober'
