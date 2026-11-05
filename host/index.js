@@ -68,6 +68,32 @@ export async function proberDiscovery(request) {
 }
 
 /**
+ * Pick the provider-level default reasoning effort, EXPLICITLY, from the
+ * probed per-model level sets.
+ *
+ * The dsh UI shows the ambiguous "Default" label exactly when the provider's
+ * `reasoning` field is unset — a per-provider value, not a per-model one, and
+ * a per-model `reasoningEfforts` list alone never fills it. This chooses the
+ * highest level supported by EVERY reasoning model on the route, so the label
+ * reads as a concrete tier (e.g. "High") instead of an opaque Default while
+ * staying honest for every model on the provider.
+ *
+ * Order: off < minimal < low < medium < high < xhigh < max (pi-ai order).
+ * @param {Array<{reasoningEfforts?: string[]|null}>} models decoded records
+ * @returns {string|undefined} the explicit default level, or undefined when
+ *   no model reasons (no level is then truthful).
+ */
+export function pickDefaultEffort(models) {
+  const ORDER = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+  const sets = (models || [])
+    .map((m) => new Set((m.reasoningEfforts || []).filter((l) => l && l !== 'off')))
+    .filter((s) => s.size > 0);
+  if (sets.length === 0) return undefined;
+  const common = ORDER.filter((l) => sets.every((s) => s.has(l)));
+  return common.length > 0 ? common[common.length - 1] : undefined;
+}
+
+/**
  * Find the `apiKeyEnv` reference for a provider route by scanning the settings
  * document for any section whose `providers[route]` object carries one.
  * @returns the referenced env/credential name, or undefined.

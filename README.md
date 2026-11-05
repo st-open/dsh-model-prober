@@ -6,7 +6,12 @@
 
 dsh 自带的「Fetch available models」只会回填 4 个字段：`id / name / contextWindow / maxTokens`。它**不读** `modalities`（识图）和 `reasoning_levels`（思考强度），所以这两项每次都得手动配——这正是这个插件补上的两块。
 
-dsh 的推理强度如果不写 `reasoningEfforts`，界面只显示 `Model · Default`，对第三方网关来说那个「Default」是不可见的盲盒。本插件把每个模型的**每一个**强度档位都显式写出来。
+dsh 的推理强度有两层，缺一就会看到含义不明的 `Default`：
+
+- **模型级 `reasoningEfforts`**：该模型有哪些档位可选。不写则整个模型按非推理处理，连档位选择都不出现。
+- **渠道级 `reasoning`**：模型选择器里显示的**默认档**。不写则 UI 显示 `Model · Default`——对第三方网关来说这个「Default」实际是什么强度，完全不可见。
+
+本插件两层都显式回填：每个模型的**每一个**档位写进 `reasoningEfforts`；再把「所有推理模型共同支持的最高档」写进渠道级 `reasoning`，让选择器直接显示具体档名（如 `Model · High`），而不是盲盒 Default。
 
 ## 它怎么「探」
 

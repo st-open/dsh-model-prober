@@ -36,6 +36,22 @@ window.__ModuleLoader__.load({
       return cur;
     }
 
+    /**
+     * Highest reasoning level supported by EVERY reasoning model on the
+     * provider — mirrors host/index.js pickDefaultEffort. The provider-level
+     * `reasoning` field is what dsh reads for the effort picker's default;
+     * leaving it unset is exactly what renders the ambiguous "Default".
+     */
+    function pickDefaultEffort(models) {
+      const ORDER = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+      const sets = (models || [])
+        .map((m) => new Set(m.reasoningEfforts ? Object.keys(m.reasoningEfforts).filter((l) => l && l !== 'off') : []))
+        .filter((s) => s.size > 0);
+      if (sets.length === 0) return undefined;
+      const common = ORDER.filter((l) => sets.every((s) => s.has(l)));
+      return common.length > 0 ? common[common.length - 1] : undefined;
+    }
+
     if (typeof document !== 'undefined' && !document.getElementById('dsh-model-prober-css')) {
       const style = document.createElement('style');
       style.id = 'dsh-model-prober-css';
@@ -111,7 +127,18 @@ window.__ModuleLoader__.load({
             return entry;
           });
 
-          const written = await services.remote.settings.mutate(ns, [{ op: 'set', path: [...basePath, 'models'], value: models }], row.revision);
+          // Provider-level DEFAULT effort — the piece that kills the ambiguous
+          // "Default" label. dsh derives the picker's default from the
+          // provider `reasoning` field, not from per-model efforts, so we
+          // compute the highest level every reasoning model supports and pin
+          // it explicitly.
+          const defaultEffort = pickDefaultEffort(models);
+
+          const ops = [{ op: 'set', path: [...basePath, 'models'], value: models }];
+          if (defaultEffort) {
+            ops.push({ op: 'set', path: [...basePath, 'reasoning'], value: defaultEffort });
+          }
+          const written = await services.remote.settings.mutate(ns, ops, row.revision);
           if (!written || written.ok === false) throw new Error((written && written.error && written.error.message) || '写回设置失败');
 
           // ---- 变更报告: 明确列出每个模型补了什么 ----
