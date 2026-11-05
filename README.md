@@ -22,7 +22,7 @@ dsh 的推理强度如果不写 `reasoningEfforts`，界面只显示 `Model · D
 
 ### 一个重要的诚实设计
 
-很多网关（比如 WorkBuddy / magpie）会在**服务端**拦截图片（返回 `Please start a new conversation, replace the image...`），或者干脆把图片丢掉让模型瞎答。这种情况下「黑盒识图探测」会得到**假阴性**。
+某些网关（如带会话状态的中转网关）会在**服务端**拦截图片（返回类似 `Please start a new conversation, replace the image...` 的错误），或者干脆把图片丢掉让模型瞎答。这种情况下「黑盒识图探测」会得到**假阴性**。
 
 所以本插件采取**保守策略**：
 
@@ -39,12 +39,12 @@ dsh 的推理强度如果不写 `reasoningEfforts`，界面只显示 `Model · D
 ```bash
 # 只读元数据（快，不实际调模型）
 node ~/Documents/dsh-model-prober/bin/cli.js probe \
-  --base-url http://10.1.32.31:3425/v1 \
+  --base-url https://gateway.example.com/v1 \
   --provider wb --api-key-env WB_API_KEY --no-active
 
 # 完整主动实测（会真的逐个模型发图片/推理请求，稍慢但更可靠）
 WB_API_KEY=sk-xxx node ~/Documents/dsh-model-prober/bin/cli.js probe \
-  --base-url http://10.1.32.31:3425/v1 \
+  --base-url https://gateway.example.com/v1 \
   --provider wb --api-key-env WB_API_KEY
 ```
 
@@ -64,7 +64,7 @@ API key 来源优先级：`--api-key` → `$DSH_PROBER_API_KEY` → `$<--api-key
 import { probeEndpoint, generateYaml } from 'dsh-model-prober';
 
 const { models } = await probeEndpoint({
-  baseURL: 'http://10.1.32.31:3425/v1',
+  baseURL: 'https://gateway.example.com/v1',
   apiKey: process.env.WB_API_KEY,
   activeProbe: true,          // false = 只读元数据
 });
@@ -73,7 +73,7 @@ const yaml = generateYaml({
   providerId: 'wb',
   apiKeyEnv: 'WB_API_KEY',
   api: 'openai-completions',
-  baseURL: 'http://10.1.32.31:3425/v1',
+  baseURL: 'https://gateway.example.com/v1',
   models,
 });
 console.log(yaml);
@@ -83,17 +83,17 @@ console.log(yaml);
 
 本包已经 `link:` 到 `~/.dsh/profiles/desktop/node_modules/dsh-model-prober`（软链）。它的 `cordis.patch.yml` 是**空数组**——它是一个工具/库，不需要常驻在运行时插件图里。想在另一个 profile 用，把它 ln -s 进那个 profile 的 `node_modules` 即可，或写成 `link:` 依赖后 `pnpm install`。
 
-## 输出示例（对 workbuddy 网关）
+## 输出示例
 
 ```
-id                             vision  efforts                    context  maxOut
------------------------------  ------  -------------------------  -------  ------
-workbuddy/hy4free              yes     high                       960000   64000
-workbuddy/deepseek-v4.1-flash  yes     off/low/high/max           1000000  128000
-workbuddy/glm-5.3              yes     low/high/max               1000000  64000
-workbuddy/glm-5.3-flash        yes     low/high/max               1000000  131072
-workbuddy/minimax-m3.1-flash   yes     low/medium/high/xhigh/max  1000000  128000
-workbuddy/kimi-k3.1-pro        yes     low/high/max               1000000  32000
+id                                vision  efforts                    context  maxOut
+--------------------------------  ------  -------------------------  -------  ------
+vendor/hy4free                    yes     high                       960000   64000
+vendor/deepseek-v4.1-flash        yes     off/low/high/max           1000000  128000
+vendor/glm-5.3                    yes     low/high/max               1000000  64000
+vendor/glm-5.3-flash              yes     low/high/max               1000000  131072
+vendor/minimax-m3.1-flash         yes     low/medium/high/xhigh/max  1000000  128000
+vendor/kimi-k3.1-pro              yes     low/high/max               1000000  32000
 ```
 
 生成的每个模型条目都**显式**带 `input: [text, image]` 与完整的 `reasoningEfforts`（`off` 映射为网关的 `none`），没有任何隐藏默认值。
