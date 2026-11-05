@@ -85,8 +85,13 @@ export async function proberDiscovery(request) {
  */
 export function pickDefaultEffort(models) {
   const ORDER = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+  const levelsOf = (v) => {
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === 'object') return Object.keys(v); // {low:'low', ...} dict form
+    return [];
+  };
   const sets = (models || [])
-    .map((m) => new Set((m.reasoningEfforts || []).filter((l) => l && l !== 'off')))
+    .map((m) => new Set(levelsOf(m.reasoningEfforts).filter((l) => l && l !== 'off')))
     .filter((s) => s.size > 0);
   if (sets.length === 0) return undefined;
   const common = ORDER.filter((l) => sets.every((s) => s.has(l)));
