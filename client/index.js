@@ -170,7 +170,8 @@ window.__ModuleLoader__.load({
               lines.push(`✓ ${m.name || m.id}（${vision}，强度 ${efforts}，无变化）`);
             }
           }
-          const summary = `探测完成：${models.length} 个模型` + (added ? `，新增 ${added}` : '') + (updated ? `，更新 ${updated}` : '') + '。';
+          const summary = `探测完成：${models.length} 个模型` + (added ? `，新增 ${added}` : '') + (updated ? `，更新 ${updated}` : '') +
+            (defaultEffort ? `；默认强度 ${defaultEffort}` : '；无推理模型，未设默认强度') + '。';
           setReport({ kind: 'ok', text: summary, lines });
         } catch (e) {
           setReport({ kind: 'err', text: `探测失败：${(e && e.message) || String(e)}`, lines: [] });

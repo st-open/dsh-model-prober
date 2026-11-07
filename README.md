@@ -53,12 +53,16 @@ WB_API_KEY=sk-xxx node ~/Documents/dsh-model-prober/bin/cli.js probe \
   --provider wb --api-key-env WB_API_KEY
 ```
 
-输出：一张能力对照表 + 一段可直接粘贴进 `cordis.patch.yml` 的配置。
+输出：一张能力对照表 + 一段可直接粘贴进 `cordis.patch.yml` 的配置。会在 provider 级写一行 `reasoning: <档位>`（默认取「所有推理模型共同支持的最高档」），这就是去掉 `Default` 的关键那一行。
 
 ```bash
 # 直接把结果写进配置文件（会覆盖该 entry，注意先备份）
 node bin/cli.js write --base-url http://... --provider wb --api-key-env WB_API_KEY \
   --config ~/.dsh/profiles/desktop/cordis.patch.yml
+
+# 想指定默认档（默认自动选最高共同档；可选 off/minimal/low/medium/high/xhigh/max）
+node bin/cli.js write --base-url http://... --provider wb --api-key-env WB_API_KEY \
+  --default-effort max --config ~/.dsh/profiles/desktop/cordis.patch.yml
 ```
 
 API key 来源优先级：`--api-key` → `$DSH_PROBER_API_KEY` → `$<--api-key-env>`（默认 `$WB_API_KEY`）。所以 key 不必出现在命令行历史里。
@@ -80,9 +84,13 @@ const yaml = generateYaml({
   api: 'openai-completions',
   baseURL: 'https://gateway.example.com/v1',
   models,
+  // 默认档：不传则自动取「所有推理模型共同支持的最高档」
+  // defaultEffort: 'high',
 });
 console.log(yaml);
 ```
+
+也可以用 `pickDefaultEffort(models)` 单独算出会被写进 provider 级的默认档。
 
 ## 安装到 profile
 
@@ -101,7 +109,27 @@ vendor/minimax-m3.1-flash         yes     low/medium/high/xhigh/max  1000000  12
 vendor/kimi-k3.1-pro              yes     low/high/max               1000000  32000
 ```
 
-生成的每个模型条目都**显式**带 `input: [text, image]` 与完整的 `reasoningEfforts`（`off` 映射为网关的 `none`），没有任何隐藏默认值。
+生成的每个模型条目都**显式**带 `input: [text, image]` 与完整的 `reasoningEfforts`（`off` 映射为网关的 `none`），没有任何隐藏默认值。provider 级还会多一行默认档：
+
+```yaml
+      wb:
+        apiKeyEnv: WB_API_KEY
+        api: openai-responses
+        baseURL: http://...
+        reasoning: high        # ← 去掉「Default」标签的关键
+        models:
+          ...
+```
+
+## 为什么新会话还看到 `Default`、怎么彻底去掉
+
+`Default`（或 `Model · Default`）只由 **provider 级 `reasoning` 是否为空** 决定，和模型级 `reasoningEfforts` 无关。看到它还残留，通常是以下三种情况：
+
+1. **配置里没写 `reasoning:`**。浏览器「探测能力」按钮会写，但如果你是用 `cli probe` 生成片段再手工粘贴、或手改过 `cordis.patch.yml`，很可能漏了这一行。用新版 `cli write` 或直接补一行即可。
+2. **写的档位该模型不支持**。例如 provider 写了 `reasoning: max`，但某个模型只支持到 `high` → 该模型的默认档失效，又退回 `Default`。所以自动策略取「所有推理模型共同支持的最高档」，必要时用 `--default-effort high` 手动压低。
+3. **改了 `cordis.patch.yml` 但没重载**。直接改文件未必会热加载；最稳妥的是在 DSH 设置里重新点一次「探测能力」（走 settings 通道、即时生效），或重启 DSH / 刷新页面。
+
+> 说明：模型本身非推理（没有 `reasoningEfforts`）时不会出现 Effort 行，也就没有 `Default` 一说——这是正常的。
 
 ## 已知边界
 

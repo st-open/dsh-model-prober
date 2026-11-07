@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import { probeEndpoint } from '../lib/probe.js';
 import { generateYaml, summarizeTable } from '../lib/generate.js';
+import { pickDefaultEffort, THINKING_ORDER } from '../lib/default-effort.js';
 
 function parseArgs(argv) {
   const out = { _: [] };
@@ -54,12 +55,15 @@ function usage() {
   console.error(`dsh-model-prober — probe third-party models and emit fully-explicit dsh config
 
   probe   --base-url <URL> [--api-key <KEY>] [--provider wb] [--api openai-completions]
-          [--api-key-env WB_API_KEY] [--no-active] [--json] [--out <file>]
+          [--api-key-env WB_API_KEY] [--no-active] [--default-effort high] [--json] [--out <file>]
   write   --base-url <URL> --config <cordis.patch.yml> [--entry-id llm-pi-ai]
-          [--provider wb] [--api-key <KEY>] [--api-key-env WB_API_KEY]
+          [--provider wb] [--api-key <KEY>] [--api-key-env WB_API_KEY] [--default-effort high]
 
 Notes:
-  --no-active   metadata only (fast; no image/reasoning calls)
+  --no-active        metadata only (fast; no image/reasoning calls)
+  --default-effort   provider-level default reasoning level to pin. Defaults to
+                     the highest level supported by every reasoning model, so
+                     the UI stops showing the ambiguous "Default" label.
   API key can come from --api-key, $DSH_PROBER_API_KEY, or $<--api-key-env>.`);
 }
 
@@ -96,12 +100,27 @@ async function main() {
     onEvent,
   });
 
+  // Resolve the provider-level default effort: an explicit --default-effort
+  // wins, otherwise auto-pick the highest level every reasoning model supports.
+  let defaultEffort = typeof args.defaultEffort === 'string' ? args.defaultEffort : undefined;
+  if (defaultEffort !== undefined && !THINKING_ORDER.includes(defaultEffort)) {
+    console.error(`error: --default-effort must be one of ${THINKING_ORDER.join(', ')}`);
+    process.exit(1);
+  }
+  defaultEffort = defaultEffort ?? pickDefaultEffort(final.models);
+
   if (cmd === 'probe') {
     if (args.json) {
-      console.log(JSON.stringify(final, null, 2));
+      console.log(JSON.stringify({ ...final, defaultEffort }, null, 2));
       return;
     }
     console.log('\n' + summarizeTable(final.models) + '\n');
+    console.log(
+      defaultEffort === undefined
+        ? '默认思考强度：无（该接口下所有模型都不支持推理）'
+        : `默认思考强度：${defaultEffort}（已写入 provider 级 reasoning，去掉 Default 标签）`,
+    );
+    console.log('');
     const yaml = generateYaml({
       entryId: args.entryId || 'llm-pi-ai',
       providerId,
@@ -109,6 +128,7 @@ async function main() {
       api,
       baseURL: final.baseURL,
       models: final.models,
+      defaultEffort,
     });
     if (args.out) {
       fs.writeFileSync(args.out, yaml);
@@ -132,9 +152,13 @@ async function main() {
       api,
       baseURL: final.baseURL,
       models: final.models,
+      defaultEffort,
     });
     fs.writeFileSync(args.config, yaml);
-    console.error(`wrote ${args.config}`);
+    console.error(
+      `wrote ${args.config}` +
+        (defaultEffort ? `（默认思考强度：${defaultEffort}）` : '（无推理模型，未写默认强度）'),
+    );
     return;
   }
 
